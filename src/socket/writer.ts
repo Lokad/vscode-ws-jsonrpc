@@ -3,31 +3,46 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 
-import { Message } from "vscode-jsonrpc/lib/common/messages";
-import { AbstractMessageWriter } from "vscode-jsonrpc/lib/common/messageWriter";
+import { Disposable } from "vscode-jsonrpc";
+import type RAL from "vscode-jsonrpc/lib/common/ral";
 import { IWebSocket } from "./socket";
 
-export class WebSocketMessageWriter extends AbstractMessageWriter {
 
-    protected errorCount = 0;
+export class WebSocketStreamWriter implements RAL.WritableStream {
+    private _onEnd : () => void;
 
     constructor(protected readonly socket: IWebSocket) {
-        super();
+        this._onEnd = () => {};
     }
 
-    end() :void {}
-    write(msg: Message) {
+    onClose(listener: () => void): Disposable {
+        this.socket.onClose(listener);
+        return { dispose: () => {} };
+    }
+    onError(listener: (error: any) => void): Disposable {
+        this.socket.onError(listener);
+        return { dispose: () => {} };
+    }
+    onEnd(listener: () => void): Disposable {
+        this._onEnd = listener;
+        return { dispose: () => {} };
+    }
+
+    write(data: Uint8Array): Promise<void>;
+    write(data: string, encoding: "ascii" | "utf-8"): Promise<void>;
+    write(data: any, encoding?: any): Promise<void> {
         return new Promise<void>((resolve, reject) =>
         {
             try {
-                const content = JSON.stringify(msg);
-                this.socket.send(content);
+                this.socket.send(data);
                 resolve();
             } catch (e) {
-                this.errorCount++;
-                this.fireError(e, msg, this.errorCount);
                 reject(e);
             }
         });
+    }
+
+    end(): void {
+        this._onEnd();
     }
 }

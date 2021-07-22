@@ -4,79 +4,45 @@
  * ------------------------------------------------------------------------------------------ */
 
 import { Disposable } from "vscode-jsonrpc";
-import { DataCallback, AbstractMessageReader } from "vscode-jsonrpc/lib/common/messageReader";
 import { IWebSocket } from "./socket";
+import type RAL from "vscode-jsonrpc/lib/common/ral";
 
-export class WebSocketMessageReader extends AbstractMessageReader {
+export class WebSocketStreamReader implements RAL.ReadableStream {
+    private errorCallback: ((a: any) => void) | undefined;
+    private closeCallback : (() => void) | undefined;
 
-    protected state: 'initial' | 'listening' | 'closed' = 'initial';
-    protected callback: DataCallback | undefined;
-    protected readonly events: { message?: any, error?: any }[] = [];
+    constructor(private readonly socket: IWebSocket) { }
 
-    constructor(protected readonly socket: IWebSocket) {
-        super();
-        this.socket.onMessage(message =>
-            this.readMessage(message)
-        );
-        this.socket.onError(error =>
-            this.fireError(error)
-        );
+    onData(listener: (data: Uint8Array) => void): Disposable {
+        this.socket.onMessage(listener);
+        return { dispose: () => {} };
+    }
+
+    onClose(listener: () => void): Disposable {
+        this.closeCallback = listener;
         this.socket.onClose((code, reason) => {
             if (code !== 1000) {
                 const error: Error = {
                     name: '' + code,
                     message: `Error during socket reconnect: code = ${code}, reason = ${reason}`
                 };
-                this.fireError(error);
+                if (this.errorCallback)
+                    this.errorCallback(error);
             }
-            this.fireClose();
+
+            if (this.closeCallback)
+                this.closeCallback();
         });
-    }
-
-    listen(callback: DataCallback): Disposable {
-        if (this.state === 'initial') {
-            this.state = 'listening';
-            this.callback = callback;
-            while (this.events.length !== 0) {
-                const event = this.events.pop()!;
-                if (event.message) {
-                    this.readMessage(event.message);
-                } else if (event.error) {
-                    this.fireError(event.error);
-                } else {
-                    this.fireClose();
-                }
-
-                return { dispose: () => this.fireClose() };
-            }
-        }
         return { dispose: () => {} };
     }
 
-    protected readMessage(message: any): void {
-        if (this.state === 'initial') {
-            this.events.splice(0, 0, { message });
-        } else if (this.state === 'listening') {
-            const data = JSON.parse(message);
-            this.callback!(data);
-        }
+    onError(listener: (error: any) => void): Disposable {
+        this.socket.onError(listener);
+        this.errorCallback = listener;
+        return { dispose: () => {} };
     }
 
-    protected fireError(error: any): void {
-        if (this.state === 'initial') {
-            this.events.splice(0, 0, { error });
-        } else if (this.state === 'listening') {
-            super.fireError(error);
-        }
+    onEnd(listener: () => void): Disposable {
+        return { dispose: () => {} };
     }
-
-    protected fireClose(): void {
-        if (this.state === 'initial') {
-            this.events.splice(0, 0, {});
-        } else if (this.state === 'listening') {
-            super.fireClose();
-        }
-        this.state = 'closed';
-    }
-
 }

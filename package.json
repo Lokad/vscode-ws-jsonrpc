@@ -1,6 +1,6 @@
 {
   "name": "vscode-ws-jsonrpc-lokad",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "description": "VSCode JSON RPC over WebSocket",
   "author": "TypeFox GmbH (http://www.typefox.io) | +Lokad updates",
   "license": "MIT",
