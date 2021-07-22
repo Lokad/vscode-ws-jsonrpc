@@ -3,7 +3,8 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 
-import { DataCallback, AbstractMessageReader } from "vscode-jsonrpc/lib/messageReader";
+import { Disposable } from "vscode-jsonrpc";
+import { DataCallback, AbstractMessageReader } from "vscode-jsonrpc/lib/common/messageReader";
 import { IWebSocket } from "./socket";
 
 export class WebSocketMessageReader extends AbstractMessageReader {
@@ -32,7 +33,7 @@ export class WebSocketMessageReader extends AbstractMessageReader {
         });
     }
 
-    listen(callback: DataCallback): void {
+    listen(callback: DataCallback): Disposable {
         if (this.state === 'initial') {
             this.state = 'listening';
             this.callback = callback;
@@ -45,8 +46,11 @@ export class WebSocketMessageReader extends AbstractMessageReader {
                 } else {
                     this.fireClose();
                 }
+
+                return { dispose: () => this.fireClose() };
             }
         }
+        return { dispose: () => {} };
     }
 
     protected readMessage(message: any): void {

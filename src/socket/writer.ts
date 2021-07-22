@@ -3,8 +3,8 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 
-import { Message } from "vscode-jsonrpc/lib/messages";
-import { AbstractMessageWriter } from "vscode-jsonrpc/lib/messageWriter";
+import { Message } from "vscode-jsonrpc/lib/common/messages";
+import { AbstractMessageWriter } from "vscode-jsonrpc/lib/common/messageWriter";
 import { IWebSocket } from "./socket";
 
 export class WebSocketMessageWriter extends AbstractMessageWriter {
@@ -15,14 +15,19 @@ export class WebSocketMessageWriter extends AbstractMessageWriter {
         super();
     }
 
-    write(msg: Message): void {
-        try {
-            const content = JSON.stringify(msg);
-            this.socket.send(content);
-        } catch (e) {
-            this.errorCount++;
-            this.fireError(e, msg, this.errorCount);
-        }
+    end() :void {}
+    write(msg: Message) {
+        return new Promise<void>((resolve, reject) =>
+        {
+            try {
+                const content = JSON.stringify(msg);
+                this.socket.send(content);
+                resolve();
+            } catch (e) {
+                this.errorCount++;
+                this.fireError(e, msg, this.errorCount);
+                reject(e);
+            }
+        });
     }
-
 }
